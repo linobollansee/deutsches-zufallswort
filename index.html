@@ -46,53 +46,70 @@
 let words = [];
 let currentWord = "";
 let running = false;
+let currentAudio = null;
 
 
 // Load word list
 fetch("https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4/raw/36b70dd6be330aa61cd4d4cdfda6234dcb0b8784/wordlist-german.txt")
-    .then(response => response.text())
-    .then(text => {
 
-        words = text
-            .split(/\r?\n/)
-            .map(word => word.trim())
-            .filter(word => word !== "");
+.then(response => response.text())
 
-        document.getElementById("word").innerHTML =
-            "Geladen: " + words.length + " Wörter";
+.then(text => {
 
-    })
-    .catch(error => {
-
-        document.getElementById("word").innerHTML =
-            "Fehler beim Laden der Wortliste";
-
-        console.error(error);
-
-    });
+    words = text
+        .split(/\r?\n/)
+        .map(word => word.trim())
+        .filter(word => word !== "");
 
 
+    document.getElementById("word").innerHTML =
+        "Geladen: " + words.length + " Wörter";
 
-// Start automatic training
+})
+
+.catch(error => {
+
+    document.getElementById("word").innerHTML =
+        "Fehler beim Laden der Wortliste";
+
+    console.error(error);
+
+});
+
+
+
+// Start trainer
 function startTrainer() {
 
     if (words.length === 0) {
+
         alert("Wortliste wird noch geladen...");
         return;
+
     }
 
+
     running = true;
+
     nextWord();
+
 }
 
 
 
-// Stop training
+// Stop trainer
 function stopTrainer() {
 
     running = false;
 
-    speechSynthesis.cancel();
+
+    if (currentAudio) {
+
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+
+    }
+
 
     document.getElementById("word").innerHTML =
         "Pause";
@@ -101,13 +118,15 @@ function stopTrainer() {
 
 
 
-// Select next random word
+// Choose next word
 function nextWord() {
 
     if (!running) return;
 
 
-    let randomIndex = Math.floor(Math.random() * words.length);
+    let randomIndex =
+        Math.floor(Math.random() * words.length);
+
 
     currentWord = words[randomIndex];
 
@@ -122,52 +141,66 @@ function nextWord() {
 
 
 
-// Speak German word
+// Google German voice
 function speakWord() {
 
 
-    let speech = new SpeechSynthesisUtterance(currentWord);
-
-
-    speech.lang = "de-DE";
-
-    // slower speed for language learning
-    speech.rate = 0.75;
-
-    speech.pitch = 1;
-
-
-    // Find German voice
-    let voices = speechSynthesis.getVoices();
-
-    let germanVoice = voices.find(
-        voice => voice.lang === "de-DE"
-    );
-
-
-    if (germanVoice) {
-        speech.voice = germanVoice;
-    }
+    let url =
+        "https://translate.google.com/translate_tts" +
+        "?ie=UTF-8" +
+        "&client=tw-ob" +
+        "&tl=de" +
+        "&q=" + encodeURIComponent(currentWord);
 
 
 
-    // After pronunciation finishes
-    speech.onend = function() {
+    currentAudio = new Audio(url);
+
+
+    // slower speed for German learners
+    currentAudio.playbackRate = 0.8;
+
+
+
+    currentAudio.onended = function() {
+
+
+        if (running) {
+
+
+            setTimeout(() => {
+
+                nextWord();
+
+            }, 1500);
+
+
+        }
+
+
+    };
+
+
+
+    currentAudio.onerror = function() {
+
+        console.log("Audio error");
 
         if (running) {
 
             setTimeout(() => {
+
                 nextWord();
-            }, 1500);
+
+            }, 1000);
 
         }
 
     };
 
 
-    speechSynthesis.cancel();
 
-    speechSynthesis.speak(speech);
+    currentAudio.play();
 
 }
 
