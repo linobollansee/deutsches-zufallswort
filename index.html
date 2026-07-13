@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>German Random Word Trainer</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin-top: 100px;
+    }
+
+    h1 {
+        font-size: 32px;
+    }
+
+    #word {
+        font-size: 60px;
+        font-weight: bold;
+        margin: 40px;
+    }
+
+    button {
+        font-size: 20px;
+        padding: 12px 25px;
+        margin: 10px;
+        cursor: pointer;
+    }
+</style>
+
+</head>
+
+<body>
+
+<h1>Deutscher Worttrainer</h1>
+
+<div id="word">Bereit?</div>
+
+<button onclick="startTrainer()">▶ Start</button>
+<button onclick="stopTrainer()">⏹ Stop</button>
+
+
+<script>
+
+let words = [];
+let currentWord = "";
+let running = false;
+
+
+// Load word list
+fetch("wordlist-german.txt")
+    .then(response => response.text())
+    .then(text => {
+
+        words = text
+            .split(/\r?\n/)
+            .map(word => word.trim())
+            .filter(word => word !== "");
+
+        document.getElementById("word").innerHTML =
+            "Geladen: " + words.length + " Wörter";
+
+    })
+    .catch(error => {
+
+        document.getElementById("word").innerHTML =
+            "Fehler beim Laden der Wortliste";
+
+        console.error(error);
+
+    });
+
+
+
+// Start automatic training
+function startTrainer() {
+
+    if (words.length === 0) {
+        alert("Wortliste wird noch geladen...");
+        return;
+    }
+
+    running = true;
+    nextWord();
+}
+
+
+
+// Stop training
+function stopTrainer() {
+
+    running = false;
+
+    speechSynthesis.cancel();
+
+    document.getElementById("word").innerHTML =
+        "Pause";
+
+}
+
+
+
+// Select next random word
+function nextWord() {
+
+    if (!running) return;
+
+
+    let randomIndex = Math.floor(Math.random() * words.length);
+
+    currentWord = words[randomIndex];
+
+
+    document.getElementById("word").innerHTML =
+        currentWord;
+
+
+    speakWord();
+
+}
+
+
+
+// Speak German word
+function speakWord() {
+
+
+    let speech = new SpeechSynthesisUtterance(currentWord);
+
+
+    speech.lang = "de-DE";
+
+    // slower speed for language learning
+    speech.rate = 0.75;
+
+    speech.pitch = 1;
+
+
+    // Find German voice
+    let voices = speechSynthesis.getVoices();
+
+    let germanVoice = voices.find(
+        voice => voice.lang === "de-DE"
+    );
+
+
+    if (germanVoice) {
+        speech.voice = germanVoice;
+    }
+
+
+
+    // After pronunciation finishes
+    speech.onend = function() {
+
+        if (running) {
+
+            setTimeout(() => {
+                nextWord();
+            }, 1500);
+
+        }
+
+    };
+
+
+    speechSynthesis.cancel();
+
+    speechSynthesis.speak(speech);
+
+}
+
+
+</script>
+
+
+</body>
+</html>
