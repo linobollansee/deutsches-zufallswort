@@ -46,7 +46,12 @@
 let words = [];
 let currentWord = "";
 let running = false;
-let currentAudio = null;
+
+
+// Load voices
+speechSynthesis.onvoiceschanged = function() {
+    speechSynthesis.getVoices();
+};
 
 
 // Load word list
@@ -102,14 +107,7 @@ function stopTrainer() {
 
     running = false;
 
-
-    if (currentAudio) {
-
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-
-    }
-
+    speechSynthesis.cancel();
 
     document.getElementById("word").innerHTML =
         "Pause";
@@ -118,7 +116,7 @@ function stopTrainer() {
 
 
 
-// Choose next word
+// Next random word
 function nextWord() {
 
     if (!running) return;
@@ -141,28 +139,64 @@ function nextWord() {
 
 
 
-// Google German voice
+// Speak with preferred German voice
 function speakWord() {
 
 
-    let url =
-        "https://translate.google.com/translate_tts" +
-        "?ie=UTF-8" +
-        "&client=tw-ob" +
-        "&tl=de" +
-        "&q=" + encodeURIComponent(currentWord);
+    let speech =
+        new SpeechSynthesisUtterance(currentWord);
+
+
+    speech.lang = "de-DE";
+
+    // slower for language learners
+    speech.rate = 0.75;
+
+    speech.pitch = 1;
 
 
 
-    currentAudio = new Audio(url);
-
-
-    // slower speed for German learners
-    currentAudio.playbackRate = 0.8;
+    let voices =
+        speechSynthesis.getVoices();
 
 
 
-    currentAudio.onended = function() {
+    // Prefer Google German voice
+    let germanVoice =
+        voices.find(voice =>
+            voice.name.includes("Google") &&
+            voice.lang.startsWith("de")
+        );
+
+
+
+    // Otherwise any German voice
+    if (!germanVoice) {
+
+        germanVoice =
+            voices.find(voice =>
+                voice.lang.startsWith("de")
+            );
+
+    }
+
+
+
+    if (germanVoice) {
+
+        speech.voice = germanVoice;
+
+        console.log(
+            "Using voice:",
+            germanVoice.name
+        );
+
+    }
+
+
+
+    // Go to next word after speaking
+    speech.onend = function() {
 
 
         if (running) {
@@ -177,30 +211,13 @@ function speakWord() {
 
         }
 
-
     };
 
 
 
-    currentAudio.onerror = function() {
+    speechSynthesis.cancel();
 
-        console.log("Audio error");
-
-        if (running) {
-
-            setTimeout(() => {
-
-                nextWord();
-
-            }, 1000);
-
-        }
-
-    };
-
-
-
-    currentAudio.play();
+    speechSynthesis.speak(speech);
 
 }
 
