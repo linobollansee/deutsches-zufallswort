@@ -47,19 +47,49 @@ let words = [];
 let currentWord = "";
 let running = false;
 
+let voices = [];
+let germanVoice = null;
+
+
 
 // Load voices
-speechSynthesis.onvoiceschanged = function() {
-    speechSynthesis.getVoices();
-};
+function loadVoices() {
+
+    voices = speechSynthesis.getVoices();
 
 
-// Load word list
+    germanVoice =
+        voices.find(v =>
+            v.lang === "de-DE" &&
+            v.name.toLowerCase().includes("google")
+        )
+        ||
+        voices.find(v =>
+            v.lang.startsWith("de")
+        );
+
+
+    console.log(
+        "Selected voice:",
+        germanVoice ? germanVoice.name : "none"
+    );
+
+}
+
+
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+
+
+
+// Load German word list
 fetch("https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4/raw/36b70dd6be330aa61cd4d4cdfda6234dcb0b8784/wordlist-german.txt")
 
 .then(response => response.text())
 
 .then(text => {
+
 
     words = text
         .split(/\r?\n/)
@@ -70,21 +100,30 @@ fetch("https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5
     document.getElementById("word").innerHTML =
         "Geladen: " + words.length + " Wörter";
 
+
 })
 
+
 .catch(error => {
+
 
     document.getElementById("word").innerHTML =
         "Fehler beim Laden der Wortliste";
 
+
     console.error(error);
+
 
 });
 
 
 
+
+
+
 // Start trainer
 function startTrainer() {
+
 
     if (words.length === 0) {
 
@@ -98,105 +137,99 @@ function startTrainer() {
 
     nextWord();
 
+
 }
+
+
+
 
 
 
 // Stop trainer
 function stopTrainer() {
 
+
     running = false;
+
 
     speechSynthesis.cancel();
 
+
     document.getElementById("word").innerHTML =
         "Pause";
+
 
 }
 
 
 
-// Next random word
+
+
+
+
+// Pick next random word
 function nextWord() {
 
-    if (!running) return;
+
+    if (!running)
+        return;
+
 
 
     let randomIndex =
         Math.floor(Math.random() * words.length);
 
 
+
     currentWord = words[randomIndex];
+
 
 
     document.getElementById("word").innerHTML =
         currentWord;
 
 
+
     speakWord();
+
 
 }
 
 
 
-// Speak with preferred German voice
+
+
+
+
+// Speak German word
 function speakWord() {
 
 
-    let speech =
+    let utterance =
         new SpeechSynthesisUtterance(currentWord);
 
 
-    speech.lang = "de-DE";
 
-    // slower for language learners
-    speech.rate = 0.75;
-
-    speech.pitch = 1;
-
-
-
-    let voices =
-        speechSynthesis.getVoices();
-
-
-
-    // Prefer Google German voice
-    let germanVoice =
-        voices.find(voice =>
-            voice.name.includes("Google") &&
-            voice.lang.startsWith("de")
-        );
-
-
-
-    // Otherwise any German voice
-    if (!germanVoice) {
-
-        germanVoice =
-            voices.find(voice =>
-                voice.lang.startsWith("de")
-            );
-
-    }
+    utterance.lang = "de-DE";
 
 
 
     if (germanVoice) {
 
-        speech.voice = germanVoice;
-
-        console.log(
-            "Using voice:",
-            germanVoice.name
-        );
+        utterance.voice = germanVoice;
 
     }
 
 
 
-    // Go to next word after speaking
-    speech.onend = function() {
+    // speed for German learning
+    utterance.rate = 0.75;
+
+    utterance.pitch = 1;
+
+
+
+    utterance.onend = function() {
 
 
         if (running) {
@@ -211,15 +244,18 @@ function speakWord() {
 
         }
 
+
     };
 
 
 
     speechSynthesis.cancel();
 
-    speechSynthesis.speak(speech);
+    speechSynthesis.speak(utterance);
+
 
 }
+
 
 
 </script>
