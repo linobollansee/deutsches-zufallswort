@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>German Random Word Trainer</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 100px;
+}
+
+h1 {
+    font-size: 32px;
+}
+
+#word {
+    font-size: 60px;
+    font-weight: bold;
+    margin: 40px;
+}
+
+#translation {
+    font-size: 28px;
+    color: gray;
+    margin-top: 20px;
+    line-height: 1.6;
+}
+
+button {
+    font-size: 20px;
+    padding: 12px 25px;
+    margin: 10px;
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>Deutscher Worttrainer</h1>
+
+<div id="word">Loading word list...</div>
+
+<div id="translation">
+    <div id="translation-en"></div>
+    <div id="translation-fr"></div>
+</div>
+
+<button id="startBtn" onclick="startTrainer()" disabled>Loading...</button>
+<button onclick="stopTrainer()">⏹ Stop</button>
+
+<script>
+
+let words = [];
+let currentWord = "";
+let running = false;
+let loaded = false;
+
+let voices = [];
+let germanVoice = null;
+
+let translations = {};
+
+
+// ----------------------------
+// Load speech voices
+// ----------------------------
+function loadVoices() {
+
+    voices = speechSynthesis.getVoices();
+
+    germanVoice =
+        voices.find(v =>
+            v.lang === "de-DE" &&
+            v.name.toLowerCase().includes("google")
+        )
+        ||
+        voices.find(v =>
+            v.lang.startsWith("de")
+        );
+
+    console.log(
+        "Selected voice:",
+        germanVoice ? germanVoice.name : "None"
+    );
+}
+
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+
+// ----------------------------
+// Load word list
+// ----------------------------
+fetch("https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4/raw/36b70dd6be330aa61cd4d4cdfda6234dcb0b8784/wordlist-german.txt")
+
+.then(response => response.text())
+
+.then(text => {
+
+    words = text
+        .split(/\r?\n/)
+        .map(word => word.trim())
+        .filter(word => word !== "");
+
+    loaded = true;
+
+    document.getElementById("word").innerHTML =
+        "Loaded " + words.length + " words";
+
+    const startBtn = document.getElementById("startBtn");
+    startBtn.disabled = false;
+    startBtn.innerHTML = "▶ Start";
+
+})
+
+.catch(error => {
+
+    document.getElementById("word").innerHTML =
+        "Failed to load word list";
+
+    const startBtn = document.getElementById("startBtn");
+    startBtn.disabled = true;
+    startBtn.innerHTML = "Load Failed";
+
+    console.error(error);
+
+});
+
+
+// ----------------------------
+// Translate to English + French
+// ----------------------------
+async function translateWord(word) {
+
+    if (translations[word]) {
+        return translations[word];
+    }
+
+    async function translate(target) {
+
+        const url =
+            "https://translate.googleapis.com/translate_a/single" +
+            "?client=gtx&sl=de&tl=" + target +
+            "&dt=t&q=" +
+            encodeURIComponent(word);
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        return data[0][0][0];
+    }
+
+    try {
+
+        const [english, french] = await Promise.all([
+            translate("en"),
+            translate("fr")
+        ]);
+
+        translations[word] = {
+            english,
+            french
+        };
+
+        return translations[word];
+
+    } catch (error) {
+
+        console.error(error);
+
+        return {
+            english: "Unavailable",
+            french: "Indisponible"
+        };
+
+    }
+
+}
+
+
+// ----------------------------
+// Start trainer
+// ----------------------------
+function startTrainer() {
+
+    if (!loaded || running)
+        return;
+
+    running = true;
+
+    nextWord();
+
+}
+
+
+// ----------------------------
+// Stop trainer
+// ----------------------------
+function stopTrainer() {
+
+    running = false;
+
+    speechSynthesis.cancel();
+
+    document.getElementById("word").innerHTML = "Paused";
+
+    document.getElementById("translation-en").innerHTML = "";
+    document.getElementById("translation-fr").innerHTML = "";
+
+}
+
+
+// ----------------------------
+// Next random word
+// ----------------------------
+async function nextWord() {
+
+    if (!running)
+        return;
+
+    const randomIndex =
+        Math.floor(Math.random() * words.length);
+
+    currentWord = words[randomIndex];
+
+    document.getElementById("word").innerHTML = currentWord;
+
+    document.getElementById("translation-en").innerHTML =
+        "English: Loading...";
+
+    document.getElementById("translation-fr").innerHTML =
+        "French: Loading...";
+
+    const translation = await translateWord(currentWord);
+
+    if (!running)
+        return;
+
+    document.getElementById("translation-en").innerHTML =
+        "English: " + translation.english;
+
+    document.getElementById("translation-fr").innerHTML =
+        "French: " + translation.french;
+
+    speakWord();
+
+}
+
+
+// ----------------------------
+// Speak word
+// ----------------------------
+function speakWord() {
+
+    const utterance =
+        new SpeechSynthesisUtterance(currentWord);
+
+    utterance.lang = "de-DE";
+
+    if (germanVoice) {
+        utterance.voice = germanVoice;
+    }
+
+    utterance.rate = 0.75;
+    utterance.pitch = 1;
+
+    utterance.onend = function () {
+
+        if (running) {
+
+            setTimeout(() => {
+
+                nextWord();
+
+            }, 3000);
+
+        }
+
+    };
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+
+}
+
+</script>
+
+</body>
+</html>
